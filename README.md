@@ -1,8 +1,9 @@
 # CO2 Monitor
 ![](images/img_1.jpeg)
+![](images/CO2_Plot.png)
 
 ### Description
-An ESP-32 device that monitors the CO2 level in the room and sends the information to a database in the cloud. A website will display the data.
+An ESP32-based CO2 monitor that logs readings to a PostgreSQL database and displays them through a Django web application.
 
 ### Impact
 [Studies](https://www.sciencedirect.com/science/article/pii/S036013232300358X) have shown that short-term exposure to high levels of CO2 can reduce cognitive performance and negatively impact learning. Therefore, it is important to be ensure that CO2 levels remain low in an academic setting.
@@ -13,9 +14,6 @@ MH-Z19C CO2 Sensor ([more info](https://www.winsen-sensor.com/d/files/infrared-g
 
 ESP32 Cheap Yellow Display ([more info](https://www.lcdwiki.com/2.8inch_ESP32-32E_Display))\
 [by Hosyond](https://www.amazon.com/gp/product/B0D92C9MMH)
-
-3.7V LiPo Battery\
-[by MakerHawk](https://www.amazon.com/gp/aw/d/B0D7MC714N)
 
 ### Features
 * Screen automatically sleeps after 5 minutes of inactivity
@@ -175,6 +173,8 @@ Delete User
 ```bash
 User.objects.get(username='myuser').delete()
 ```
+
+If you are using GitHub and want the actions to work properly, add your CO2_API_TOKEN and SECRET_KEY (same as your .env file) to your GitHub repository's secrets.
 
 #### Testing Database Entry Labels
 * building of 'debug', room 0 for esp32 test insertions
