@@ -1,0 +1,33 @@
+**/venv
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+.eggs/
+dist/
+build/
+wheels/
+
+# OS generated files
+.DS_Store
+
+# Secrets
+.env
+secrets.h
+
+# Other
+backup.dump
+
+# Django
+*.log
+Django/logs/*
+!Django/logs/.gitkeep
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static/

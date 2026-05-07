@@ -1,0 +1,94 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+
+{% include "dashboard/_partials/co2_plot.html" %}
+
+<div style="margin-top:1.5rem;">
+  <button id="calc-btn" onclick="runCalcStats()"
+          style="padding:.4rem 1rem;">
+    Recalculate Room Stats
+  </button>
+  <span id="calc-status" style="margin-left:.75rem; font-size:.9rem; color:#6b7280;"></span>
+</div>
+
+{% if best_rooms or worst_rooms %}
+<div style="display:flex; gap:2rem; margin-top:2rem; margin-bottom:3rem; flex-wrap:wrap;">
+
+  <div style="flex:1; min-width:280px;">
+    <h3 style="margin-bottom:.75rem; color:#15803d;">Top 5 Best Rooms</h3>
+    <div class="table-responsive">
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f3f4f6; text-align:left;">
+          <th style="padding:.5rem .75rem; border:1px solid #e5e7eb;">Building</th>
+          <th style="padding:.5rem .75rem; border:1px solid #e5e7eb;">Room</th>
+          <th style="padding:.5rem .75rem; border:1px solid #e5e7eb;">Avg CO₂ (ppm)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in best_rooms %}
+        <tr>
+          <td style="padding:.5rem .75rem; border:1px solid #e5e7eb;">{{ r.building }}</td>
+          <td style="padding:.5rem .75rem; border:1px solid #e5e7eb;">{{ r.room_number }}</td>
+          <td style="padding:.5rem .75rem; border:1px solid #e5e7eb;">{{ r.co2_avg }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div style="flex:1; min-width:280px;">
+    <h3 style="margin-bottom:.75rem; color:#b91c1c;">Top 5 Worst Rooms</h3>
+    <div class="table-responsive">
+    <table style="width:100%; border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f3f4f6; text-align:left;">
+          <th style="padding:.5rem .75rem; border:1px solid #e5e7eb;">Building</th>
+          <th style="padding:.5rem .75rem; border:1px solid #e5e7eb;">Room</th>
+          <th style="padding:.5rem .75rem; border:1px solid #e5e7eb;">Avg CO₂ (ppm)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in worst_rooms %}
+        <tr>
+          <td style="padding:.5rem .75rem; border:1px solid #e5e7eb;">{{ r.building }}</td>
+          <td style="padding:.5rem .75rem; border:1px solid #e5e7eb;">{{ r.room_number }}</td>
+          <td style="padding:.5rem .75rem; border:1px solid #e5e7eb;">{{ r.co2_avg }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+<script>
+function runCalcStats() {
+  const btn    = document.getElementById('calc-btn');
+  const status = document.getElementById('calc-status');
+
+  btn.disabled = true;
+  status.textContent = 'Running...';
+
+  fetch("{% url 'run_calculate_room_stats' %}", {
+    method: 'POST',
+    headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+  })
+    .then(r => r.json())
+    .then(data => {
+      status.textContent = `Done — ${data.updated} updated, ${data.skipped} skipped. Reloading…`;
+      setTimeout(() => window.location.reload(), 1000);
+    })
+    .catch(() => {
+      status.textContent = 'Error — check the server logs.';
+    })
+    .finally(() => {
+      btn.disabled = false;
+    });
+}
+</script>
+
+{% endblock %}

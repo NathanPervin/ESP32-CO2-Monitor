@@ -1,0 +1,7 @@
+django
+python-dotenv
+psycopg2-binary
+requests
+pytest
+python-json-logger
+gunicorn

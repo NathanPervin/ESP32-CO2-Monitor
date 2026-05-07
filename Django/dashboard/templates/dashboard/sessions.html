@@ -1,0 +1,128 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+
+<!-- Flatpickr -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<!-- Breadcrumb -->
+<nav style="font-size:.9rem; color:#6b7280; margin-bottom:1rem;">
+  <a href="{% url 'search' %}">Search</a>
+  <span style="margin:0 .4rem;">›</span>
+  <span>{{ building }} / Room {{ room }}</span>
+</nav>
+
+<h2 style="margin-bottom:1rem;">{{ building }} — Room {{ room }}</h2>
+
+<!-- Filters -->
+<form method="get" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap; margin-bottom:1.5rem;">
+
+  <div style="min-width:120px; flex:1 1 auto;">
+    <label for="mode-select">Mode</label><br>
+    <select id="mode-select" name="mode" style="padding:.4rem .6rem; width:100%;">
+      <option value="">All modes</option>
+      <option value="session" {% if selected_mode == 'session' %}selected{% endif %}>session</option>
+      <option value="ambient" {% if selected_mode == 'ambient' %}selected{% endif %}>ambient</option>
+    </select>
+  </div>
+
+  <div style="min-width:130px; flex:1 1 auto;">
+    <label for="date_from">From</label><br>
+    <input id="date_from" name="date_from" value="{{ date_from }}"
+           placeholder="YYYY-MM-DD" readonly
+           style="padding:.4rem .6rem; cursor:pointer; width:100%;">
+  </div>
+
+  <div style="min-width:130px; flex:1 1 auto;">
+    <label for="date_to">To</label><br>
+    <input id="date_to" name="date_to" value="{{ date_to }}"
+           placeholder="YYYY-MM-DD" readonly
+           style="padding:.4rem .6rem; cursor:pointer; width:100%;">
+  </div>
+
+  <button type="submit" style="padding:.4rem 1rem;">Filter</button>
+
+  {% if selected_mode or date_from or date_to %}
+    <a href="{% url 'sessions' building room %}" style="padding:.4rem .6rem;">Clear</a>
+  {% endif %}
+
+</form>
+
+<!-- Results -->
+{% if sessions %}
+  <div class="table-responsive">
+  <table style="width:100%; border-collapse:collapse;">
+    <thead>
+      <tr style="background:#f3f4f6; text-align:left;">
+        <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Mode</th>
+        <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Start</th>
+        <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">End</th>
+        <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Duration</th>
+        <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Readings</th>
+        <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Plot</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      <tr style="border-bottom:1px solid #e5e7eb;">
+
+        <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+          <span style="
+            display:inline-block; padding:2px 10px; border-radius:999px;
+            font-size:.8rem; font-weight:600;
+            {% if s.mode == 'ambient' %}background:#dbeafe; color:#1d4ed8;
+            {% else %}background:#dcfce7; color:#15803d;{% endif %}">
+            {{ s.mode }}
+          </span>
+          {% if s.is_live %}
+          <span style="
+            display:inline-block; margin-left:.5rem;
+            width:8px; height:8px; border-radius:50%; background:#16a34a;
+            box-shadow:0 0 0 0 rgba(22,163,74,.6);
+            animation:live-pulse 1.4s ease-out infinite;">
+          </span>
+          {% endif %}
+        </td>
+
+        <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+          {{ s.start_fmt }}
+        </td>
+
+        <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+          {{ s.end_fmt }}
+        </td>
+
+        <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+          {{ s.duration }}
+        </td>
+
+        <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+          {{ s.count }}
+        </td>
+
+        <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+          <a href="{% url 'plot' s.session_id %}">View plot →</a>
+        </td>
+
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+{% else %}
+  <p>No sessions found{% if selected_mode or date_from or date_to %} for the selected filters{% endif %}.</p>
+{% endif %}
+
+<style>
+  @keyframes live-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(22,163,74,.6); }
+    70%  { box-shadow: 0 0 0 6px rgba(22,163,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+  }
+</style>
+<script>
+  flatpickr("#date_from", { dateFormat: "Y-m-d", allowInput: false });
+  flatpickr("#date_to",   { dateFormat: "Y-m-d", allowInput: false });
+</script>
+
+{% endblock %}

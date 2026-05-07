@@ -1,0 +1,71 @@
+name: Run Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: co2_test
+          POSTGRES_USER: co2_user
+          POSTGRES_PASSWORD: co2_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_NAME: co2_test
+      DB_USER: co2_user
+      DB_PASSWORD: co2_pass
+      DB_HOST: localhost
+      PORT: 5432
+      CO2_API_TOKEN: ${{ secrets.CO2_API_TOKEN }}
+      API_BASE_URL: http://localhost:8000
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run migrations
+        working-directory: Django
+        run: python manage.py migrate
+
+      - name: Run Django unit tests
+        working-directory: Django
+        run: python manage.py test api --verbosity=2
+
+      - name: Start Django server
+        working-directory: Django
+        run: python manage.py runserver &
+
+      - name: Wait for server to be ready
+        run: |
+          for i in $(seq 1 10); do
+            curl -s http://localhost:8000/ > /dev/null && break
+            echo "Waiting for server... ($i)"
+            sleep 1
+          done
+
+      - name: Run API integration tests
+        run: pytest testing/testing_api.py -v

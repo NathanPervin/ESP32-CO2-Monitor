@@ -1,0 +1,50 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<div class="login-container" style="max-width:400px; margin:2rem auto;">
+    <h2>Log In</h2>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-danger">
+                <p style="margin: 0;">{{ message }}</p>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {# Display errors if login failed #}
+    {% if form.errors %}
+        <div class="alert alert-danger">
+                <p style="margin: 0;">Your username and password didn't match. Please try again.</p>
+            </div>
+    {% endif %}
+
+    {# Handling the 'next' parameter for redirection #}
+    {% if next %}
+        {% if user.is_authenticated %}
+            <div class="alert alert-danger">
+                <p style="margin: 0;">Your account doesn't have access to this page. To proceed,
+                please login with an account that has access.</p>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
+        {% csrf_token %}
+    <div class="form-group">
+        <label for="exampleInputEmail1">Username</label>
+        <input type="text" class="form-control" name="username" aria-describedby="emailHelp" placeholder="Username">
+    </div>
+    <div class="form-group">
+        <label for="exampleInputPassword1">Password</label>
+        <input type="password" class="form-control" name="password" placeholder="Password">
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+
+    <div class="help-text">
+        {# Uncomment the line below if you have password reset URLs configured #}
+        {# <p><a href="{% url 'password_reset' %}">Forgot password?</a></p> #}
+    </div>
+</div>
+{% endblock %}

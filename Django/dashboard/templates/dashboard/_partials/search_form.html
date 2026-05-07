@@ -1,0 +1,46 @@
+<form method="get" style="display:flex; gap:.75rem; align-items:flex-end; flex-wrap:wrap;">
+  <div style="min-width:120px; flex:1 1 auto;">
+    <label for="building">Building</label><br>
+    <input id="building" name="building" value="{{ q_building }}"
+           placeholder="e.g. COE" style="padding:.4rem .6rem; width:100%;">
+  </div>
+  <div style="min-width:100px; flex:1 1 auto;">
+    <label for="room">Room</label><br>
+    <input id="room" name="room" value="{{ q_room }}"
+           placeholder="e.g. 306" style="padding:.4rem .6rem; width:100%;">
+  </div>
+  <button type="submit" style="padding:.4rem 1rem;">Search</button>
+  {% if q_building or q_room %}
+    <a href="{% url 'search' %}" style="padding:.4rem .6rem;">Clear</a>
+  {% endif %}
+</form>
+
+{% if results is not None %}
+  <hr>
+  {% if results %}
+    <div class="table-responsive">
+    <table style="width:100%; border-collapse:collapse; margin-top:1rem;">
+      <thead>
+        <tr style="background:#f3f4f6; text-align:left;">
+          <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Building</th>
+          <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Room</th>
+          <th style="padding:.6rem 1rem; border:1px solid #e5e7eb;">Sessions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in results %}
+        <tr>
+          <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">{{ r.building }}</td>
+          <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">{{ r.room_number }}</td>
+          <td style="padding:.6rem 1rem; border:1px solid #e5e7eb;">
+            <a href="{% url 'sessions' r.building r.room_number %}">View sessions →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  {% else %}
+    <p>No results found.</p>
+  {% endif %}
+{% endif %}

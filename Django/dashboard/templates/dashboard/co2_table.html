@@ -1,0 +1,27 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<h1>Last 100 CO2 Readings</h1>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Mode</th>
+            <th>Building</th>
+            <th>Room</th>
+            <th>Timestamp</th>
+            <th>CO2 (ppm)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in readings %}
+        <tr>
+            <td>{{ r.mode }}</td>
+            <td>{{ r.building }}</td>
+            <td>{{ r.room_number }}</td>
+            <td>{{ r.unix_timestamp }}</td>
+            <td>{{ r.co2_ppm }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

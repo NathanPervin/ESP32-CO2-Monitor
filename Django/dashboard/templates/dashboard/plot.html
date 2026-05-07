@@ -1,0 +1,15 @@
+{% extends "dashboard/base.html" %}
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav style="font-size:.9rem; color:#6b7280; margin-bottom:1rem;">
+  <a href="{% url 'search' %}">Search</a>
+  <span style="margin:0 .4rem;">›</span>
+  <a href="{% url 'sessions' building room %}">{{ building }} / Room {{ room }}</a>
+  <span style="margin:0 .4rem;">›</span>
+  <span>{{ mode }} — {{ start_fmt }}</span>
+</nav>
+
+{% include "dashboard/_partials/co2_plot.html" %}
+
+{% endblock %}
