@@ -12,6 +12,7 @@
 #include <time.h>
 #include <secrets.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 
 /*
     GUI Variables
@@ -166,7 +167,7 @@ static float CO2_value = 0;
 bool on_start_screen = false;
 bool on_recording_screen = false;
 
-#define LOG_BUFFER_SIZE 300 // 300 JSON lines, 1s per line = 5 minutes of data
+#define LOG_BUFFER_SIZE 240 // 240 JSON lines, 1s per line = 240 minutes of data
 
 // {"mode":"session","building":"","room_number":"","unix_timestamp":1700000000,"CO2_ppm":5000}
 // fixed chars:  ~64  +  max building: 30  +  max room: 10  +  null: 1  =  105, use 128 for extra room
@@ -331,7 +332,8 @@ bool upload_data() {
   }
   payload += "]";
 
-  WiFiClient client;
+  WiFiClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   http.begin(client, SERVER_URL);
   http.addHeader("Content-Type", "application/json");
@@ -477,17 +479,17 @@ bool get_location() {
     return false;
   }
 
-  // if no building was entered, save as 'debug'
+  // if no building was entered, use the default from secrets.h
   if (strlen(building_text_const) == 0) {
-    strncpy(building_text, "debug", MAX_BUILDING_LENGTH - 1);
+    strncpy(building_text, DEFAULT_BUILDING, MAX_BUILDING_LENGTH - 1);
   } else {
     strncpy(building_text, building_text_const, MAX_BUILDING_LENGTH - 1);
   }
   building_text[MAX_BUILDING_LENGTH - 1] = '\0';
 
-  // if no room was entered, save as '0'
+  // if no room was entered, use the default from secrets.h
   if (strlen(room_text_const) == 0) {
-    strncpy(room_text, "0", MAX_ROOM_LENGTH - 1);
+    strncpy(room_text, DEFAULT_ROOM, MAX_ROOM_LENGTH - 1);
   } else {
     strncpy(room_text, room_text_const, MAX_ROOM_LENGTH - 1);
   }

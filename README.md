@@ -28,7 +28,7 @@ ESP32 CYD GUI configuration files can be found in [this guide](https://randomner
 
 ### Data Collection and Upload
 
-Samples will be taken every 1 second. The timestamp will be updated after each data POST request to keep the timestamps accurate over long periods of time. POST requests will be made every 5 minutes to reduce power usage and live data is already displayed on the CYD. A SQLite database hosted in the cloud will be used to store the data.
+Samples will be taken every 1 second. The timestamp will be updated after each data POST request to keep the timestamps accurate over long periods of time. POST requests will be made every 4 minutes to reduce power usage and live data is already displayed on the CYD. A SQLite database hosted in the cloud will be used to store the data.
 
 #### `POST /api/log/`
 
@@ -144,7 +144,7 @@ Create a systemd service so the web app automatically starts on boot.
 sudo nano /etc/systemd/system/co2dashboard.service
 ```
 
-Copy and Paste (right click), then change the WorkingDirectory to reflect your system's file path. Exit using CTRL+X then hit enter.
+Copy and Paste (right click), then change the WorkingDirectory to reflect your system's file path. Exit using CTRL+X then `y`, then hit enter.
 ```
 [Unit]
 Description=CO2 Dashboard
@@ -201,7 +201,7 @@ Write the Caddyfile:
 nano /etc/caddy/Caddyfile
 ```
 
-Copy and Paste (right click), then change the example.com domain to your domain, as well as the file path to your system's path to the staticfiles directory within the Django project. Exit using CTRL+X then hit enter.
+Copy and Paste (right click), then change the example.com domain to your domain, as well as the file path to your system's path to the staticfiles directory within the Django project. Exit using CTRL+X then `y`, then hit enter.
 ```
 example.com {
     handle /static/* {
@@ -216,8 +216,9 @@ example.com {
 restart Caddy
 ```bash
 sudo systemctl reload caddy
-
 ```
+
+Remember to update your domain's DNS records to your server's IP. Also ensure your firewall settings allow access to ports 80 (http) and 443 (https), which Caddy listens on by default.
 
 ### How to set up ESP32 CYD
 Instructions are for the Arduino IDE:
@@ -268,8 +269,16 @@ Delete User
 User.objects.get(username='myuser').delete()
 ```
 
+Change `DEFAULT_BUILDING` and `DEFAULT_ROOM` in secrets.h to simply press start to log data for that room without needing to type it in.
+
+CO2 values are POSTed every 240 seconds (4 minutes) with 240 samples. Increasing the number of samples in each POST can cause the POSTs to fail with the serial log of:
+```
+POST failed: connection refused
+```
+If you get this error, try to reduce the number of samples sent in each POST by changing the value of `LOG_BUFFER_SIZE` in `esp32/CO2Monitor.ino`.
+
 If you are using GitHub and want the actions to work properly, add your CO2_API_TOKEN and SECRET_KEY (same as your .env file) to your GitHub repository's secrets.
 
 #### Testing Database Entry Labels
-* building of 'debug', room 0 for esp32 test insertions
+* building of 'debug', room 0 for esp32 test insertions (unless overridden in secrets.h)
 * building of 'debug', room 1 for unit testing
