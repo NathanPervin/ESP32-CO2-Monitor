@@ -3,7 +3,7 @@
 ![](images/CO2_Plot.png)
 
 ### Description
-An ESP32-based CO2 monitor that logs readings to a PostgreSQL database and displays them through a Django web application.
+An ESP32-based CO2 monitor that logs readings to a SQLite database and displays them through a Django web application.
 
 ### Impact
 [Studies](https://www.sciencedirect.com/science/article/pii/S036013232300358X) have shown that short-term exposure to high levels of CO2 can reduce cognitive performance and negatively impact learning. Therefore, it is important to be ensure that CO2 levels remain low in an academic setting.
@@ -20,7 +20,7 @@ ESP32 Cheap Yellow Display ([more info](https://www.lcdwiki.com/2.8inch_ESP32-32
 * Zero the CO2 sensor to 400 ppm by depressing the button for 7 seconds (only do this when outdoors)
 
 ### Dependencies
-* Django for web app, API endpoint, and PostgreSQL database
+* Django for web app, API endpoint, and SQLite database
 * LVGL for ESP-32 GUI
 * TFT_eSPI
 * XPT2046_Touchscreen
@@ -28,7 +28,7 @@ ESP32 CYD GUI configuration files can be found in [this guide](https://randomner
 
 ### Data Collection and Upload
 
-Samples will be taken every 1 second. The timestamp will be updated after each data POST request to keep the timestamps accurate over long periods of time. POST requests will be made every 5 minutes to reduce power usage and live data is already displayed on the CYD. A PostgreSQL database hosted in the cloud will be used to store the data.
+Samples will be taken every 1 second. The timestamp will be updated after each data POST request to keep the timestamps accurate over long periods of time. POST requests will be made every 5 minutes to reduce power usage and live data is already displayed on the CYD. A SQLite database hosted in the cloud will be used to store the data.
 
 #### `POST /api/log/`
 
@@ -85,6 +85,14 @@ Modified [ghfisanotti's CYD Case on Thingiverse](https://www.thingiverse.com/thi
 The 5-pin female pin header is secured by melting the plastic around it with a soldering iron. On the female pin header that the MH-Z19C's HD pin will plug into, solder a wire (this will connect to one pin of the button). Connect the other pin of the button to a GND pin on the CYD.
 
 ###  How to run
+Clone this repo
+```bash
+git clone https://github.com/NathanPervin/ESP32-CO2-Monitor.git
+```
+```bash
+cd ESP32-CO2-Monitor
+```
+
 Create a virtual environment
 ```bash
 python -m venv venv
@@ -100,44 +108,130 @@ Install dependencies
 pip install -r requirements.txt
 ```
 
-Install PostgreSQL
-```bash
-sudo apt install postgresql postgresql-contrib
-```
-
-Run a Docker Container for PostgreSQL if you only want local data storage
-```bash
-sudo apt install docker.io
-```
-
-```bash
-docker run -d \
-  --name co2_postgres \
-  -e POSTGRES_DB=co2db \
-  -e POSTGRES_USER=co2user \
-  -e POSTGRES_PASSWORD=yourpassword \
-  -p 5432:5432 \
-  postgres:15
-```
-
 Set environment variables in the file Django/CO2_Dashboard/.env, see the .env.example file in that directory for the required variables. Also set the environment variables in testing/.env, see the .env.example file in that folder for the required variables.
+
+To Generate the CO2_API_TOKEN SECRET_KEY you can run the following command twice:
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(50))"
+```
+The CO2_API_TOKEN in this .env and in the esp32 secrets.h must match. 
 
 ```bash
 cd Django
 ```
 create the database tables
 ```bash
-python manage.py makemigrations
+python manage.py migrate
 ```
 
+Make your account (use these credentials to sign in). To make a standard user account, see the `Miscellaneous Info` section in this document.
 ```bash
-python manage.py migrate
+python manage.py createsuperuser
 ```
 
 Run locally using:
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
+
+If hosting use the following commands:
+```bash
+python manage.py collectstatic --noinput
+```
+
+Create a systemd service so the web app automatically starts on boot.
+```bash
+sudo nano /etc/systemd/system/co2dashboard.service
+```
+
+Copy and Paste (right click), then change the WorkingDirectory to reflect your system's file path. Exit using CTRL+X then hit enter.
+```
+[Unit]
+Description=CO2 Dashboard
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/path/to/ESP32-CO2-Monitor/Django
+ExecStart=/path/to/ESP32-CO2-Monitor/venv/bin/gunicorn
+CO2_Dashboard.wsgi:application --bind 127.0.0.1:8000 --workers 1
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+if you are a different linux user than `root`, replace `root` above with the output of `whoami`
+
+Enable and start systemd service:
+```bash
+sudo systemctl daemon-reload
+```
+
+```bash
+sudo systemctl enable co2dashboard
+```
+
+```bash
+sudo systemctl start co2dashboard
+```
+
+Check if its running:
+```bash
+sudo systemctl status co2dashboard
+```
+
+Use caddy as a reverse proxy (requires a domain)
+```bash
+sudo apt update
+```
+
+Install [caddy](https://caddyserver.com/docs/install#debian-ubuntu-raspbian)
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+Write the Caddyfile:
+```bash
+nano /etc/caddy/Caddyfile
+```
+
+Copy and Paste (right click), then change the example.com domain to your domain, as well as the file path to your system's path to the staticfiles directory within the Django project. Exit using CTRL+X then hit enter.
+```
+example.com {
+    handle /static/* {
+        uri strip_prefix /static
+        root * /path/to/ESP32-CO2-Monitor/Django/staticfiles
+        file_server
+    }
+    reverse_proxy localhost:8000
+}
+```
+
+restart Caddy
+```bash
+sudo systemctl reload caddy
+
+```
+
+### How to set up ESP32 CYD
+Instructions are for the Arduino IDE:
+
+Open the `esp32/CO2Monitor.ino` file in the Arduino IDE.
+
+install the following libraries from the Library Manager within the Arduino IDE:
+* `TFT_eSPI` by `Bodmer`
+* `XPT2046_Touchscreen` by `Paul Stoffregen`
+* `lvgl` by `kiskegabor`
+
+Follow [this tutorial](https://randomnerdtutorials.com/lvgl-cheap-yellow-display-esp32-2432s028r/), just the `Prepare Config Files for TFT_eSPI and LVGL Library` section is required. 
+
+Then, download the program to your esp32.
 
 ### Unit Testing
 Run the external API unit tests
