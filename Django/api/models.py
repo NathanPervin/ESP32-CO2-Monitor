@@ -11,11 +11,14 @@ class CO2Reading(models.Model):
     session_id = models.CharField(max_length=50, null=True, blank=True)
 
     class Meta:
+        # leading columns of an index can also be used on their own, so (building) and
+        # (building, room_number) lookups are served by the longer indexes below
         indexes = [
-            models.Index(fields=['building']),
-            models.Index(fields=['building', 'room_number']),
-            models.Index(fields=['building', 'room_number', 'mode']),
             models.Index(fields=['building', 'room_number', 'unix_timestamp']),
+            models.Index(fields=['building', 'room_number', 'mode', 'unix_timestamp']),  # get_session_id() on every POST
+            models.Index(fields=['building', 'room_number', 'session_id', 'mode', 'unix_timestamp']),  # sessions list
+            models.Index(fields=['session_id', 'unix_timestamp', 'co2_ppm']),  # plot page + plot data
+            models.Index(fields=['unix_timestamp']),  # most recent reading (dashboard)
         ]
 
     def __str__(self):

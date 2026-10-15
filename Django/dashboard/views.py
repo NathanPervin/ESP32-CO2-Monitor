@@ -18,19 +18,24 @@ MAX_PLOT_POINTS = settings.MAX_PLOT_POINTS
 # Create your views here.
 @login_required(login_url='/users/login_user')
 def dashboard(request):
+    # find the most recent reading first 
+    latest = (CO2Reading.objects
+        .order_by('-unix_timestamp')
+        .values('building', 'room_number', 'mode', 'session_id')
+        .first())
+
+    if latest is None:
+        return render(request, 'dashboard/dashboard.html', {'has_data': False})
+
     session = (CO2Reading.objects
+        .filter(**latest)
         .values('building', 'room_number', 'mode', 'session_id')
         .annotate(
             start=Min('unix_timestamp'),
             end=Max('unix_timestamp'),
             count=Count('id'),
         )
-        .order_by('-end')[:1])
-
-    if not session:
-        return render(request, 'dashboard/dashboard.html', {'has_data': False})
-
-    session = session[0]
+        .order_by())[0]
     start = session['start']
     end = session['end']
     session_hours, session_minutes, session_seconds = get_hours_mins_seconds(end=end, start=start)
@@ -179,18 +184,20 @@ def plot(request, session_id):
     session = (CO2Reading.objects
         .filter(session_id=session_id)
         .values('building', 'room_number', 'mode')
-        .annotate(
+        .order_by('unix_timestamp')
+        .first())
+
+    # check that db query was successful before continuing
+    if session is None:
+        return render(request, 'dashboard/plot.html', {'has_data': False})
+
+    session.update(CO2Reading.objects
+        .filter(session_id=session_id)
+        .aggregate(
             start=Min('unix_timestamp'),
             end=Max('unix_timestamp'),
             count=Count('id'),
-        )
-        .order_by()[:1])
-
-    # check that db query was successful before continuing
-    if not session:
-        return render(request, 'dashboard/plot.html', {'has_data': False})
-    else:
-        session = session[0]
+        ))
 
     start = session['start']
     end = session['end']
