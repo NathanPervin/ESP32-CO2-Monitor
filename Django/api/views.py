@@ -3,9 +3,10 @@ import logging
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from .models import CO2Reading
+from .models import CO2Reading, CO2Session
 from django.shortcuts import render
 from django.conf import settings
+from django.db import transaction
 import uuid
 
 logger = logging.getLogger("api")
@@ -79,7 +80,11 @@ def log_co2(request):
         })
         return JsonResponse({"error": f"Missing field: {e}"}, status=400)
 
-    CO2Reading.objects.bulk_create(readings)
+    # save the readings and the session together
+    with transaction.atomic():
+        CO2Reading.objects.bulk_create(readings)
+        update_session(session_id, first_entry, readings)
+
     logger.info("batch_saved", extra={
         **get_device_info(request),
         "building": first_entry["building"],
@@ -107,3 +112,29 @@ def get_session_id(building, room_number, mode, unix_timestamp):
     
     # if above did not return, its not a new session, use the session id from the last database entry
     return last_sample_info['session_id']
+
+def update_session(session_id, first_entry, readings):
+
+    timestamps = [r.unix_timestamp for r in readings]
+    batch_start = min(timestamps)
+    batch_end = max(timestamps)
+
+    # for new session create CO2Session object, for existing session, retrieves existing object
+    session, created = CO2Session.objects.get_or_create(
+        session_id=session_id,
+        defaults={
+            'mode':            first_entry['mode'],
+            'building':        first_entry['building'],
+            'room_number':     str(first_entry['room_number']),
+            'start_timestamp': batch_start,
+            'end_timestamp':   batch_end,
+            'reading_count':   len(readings),
+        },
+    )
+
+    # if new data is uploaded for existing session, update the values
+    if not created:
+        session.start_timestamp = min(session.start_timestamp, batch_start)
+        session.end_timestamp = max(session.end_timestamp, batch_end)
+        session.reading_count += len(readings)
+        session.save()

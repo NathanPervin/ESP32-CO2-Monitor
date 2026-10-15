@@ -1,7 +1,7 @@
 import json
 from django.test import TestCase, Client
 from django.conf import settings
-from .models import CO2Reading
+from .models import CO2Reading, CO2Session
 
 VALID_ENTRY = {
     "mode": "ambient",
@@ -336,3 +336,51 @@ class SessionContinuityTest(TestCase):
         sid1 = CO2Reading.objects.filter(unix_timestamp=ts, building="BuildingA").values_list("session_id", flat=True).first()
         sid2 = CO2Reading.objects.filter(unix_timestamp=ts, building="BuildingB").values_list("session_id", flat=True).first()
         self.assertNotEqual(sid1, sid2)
+
+
+class SessionSummaryTest(TestCase):
+    """
+    Verifies the CO2Session summary row is kept in sync with the readings on every POST.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        self.url = "/api/log/"
+        self.token = settings.CO2_API_TOKEN
+
+    def post(self, data):
+        return self.client.post(self.url, data=json.dumps(data),
+                                content_type="application/json",
+                                HTTP_AUTHORIZATION=f"Bearer {self.token}")
+
+    def test_first_batch_creates_summary(self):
+        ts = unique_ts()
+        self.post([{**VALID_ENTRY, "unix_timestamp": ts + i} for i in range(3)])
+        s = CO2Session.objects.get()
+        self.assertEqual(s.session_id, CO2Reading.objects.values_list("session_id", flat=True).first())
+        self.assertEqual((s.building, s.room_number, s.mode), ("debug", "1", "ambient"))
+        self.assertEqual((s.start_timestamp, s.end_timestamp, s.reading_count), (ts, ts + 2, 3))
+
+    def test_later_batch_in_same_session_updates_summary(self):
+        ts = unique_ts()
+        self.post([{**VALID_ENTRY, "unix_timestamp": ts + i} for i in range(3)])
+        self.post([{**VALID_ENTRY, "unix_timestamp": ts + 10 + i} for i in range(2)])
+        s = CO2Session.objects.get()
+        self.assertEqual((s.start_timestamp, s.end_timestamp, s.reading_count), (ts, ts + 11, 5))
+
+    def test_gap_creates_second_summary(self):
+        ts = unique_ts()
+        self.post({**VALID_ENTRY, "unix_timestamp": ts})
+        self.post({**VALID_ENTRY, "unix_timestamp": ts + 301})
+        self.assertEqual(CO2Session.objects.count(), 2)
+
+    def test_count_matches_readings(self):
+        ts = unique_ts()
+        for batch in range(4):
+            self.post([{**VALID_ENTRY, "unix_timestamp": ts + batch * 5 + i} for i in range(5)])
+        s = CO2Session.objects.get()
+        self.assertEqual(s.reading_count, CO2Reading.objects.filter(session_id=s.session_id).count())
+
+    def test_rejected_batch_does_not_create_summary(self):
+        self.post([{**VALID_ENTRY, "unix_timestamp": unique_ts()}, drop(VALID_ENTRY, "mode")])
+        self.assertEqual(CO2Session.objects.count(), 0)

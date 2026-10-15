@@ -252,6 +252,12 @@ python manage.py test api -v 2
 ```
 
 ### Miscellaneous Info
+General Commands
+```bash
+sudo systemctl stop co2dashboard
+```
+
+Django Commands:
 Create User
 ```bash
 python manage.py shell

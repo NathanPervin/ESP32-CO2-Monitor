@@ -29,3 +29,20 @@ class CO2Reading(models.Model):
         "unix_timestamp": self.unix_timestamp,
         "CO2_ppm": self.co2_ppm,
     })
+
+class CO2Session(models.Model):
+    session_id = models.CharField(max_length=50, unique=True)
+    mode = models.CharField(max_length=50)
+    building = models.CharField(max_length=30)
+    room_number = models.CharField(max_length=10)
+    start_timestamp = models.BigIntegerField()  # oldest timestamp in the session
+    end_timestamp = models.BigIntegerField()    # newest timestamp in the session
+    reading_count = models.IntegerField(default=0)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['building', 'room_number', 'start_timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.building} {self.room_number} {self.session_id}"

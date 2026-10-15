@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
-from api.models import CO2Reading
+from api.models import CO2Reading, CO2Session
 from dashboard.models import RoomStats
 from datetime import datetime, timezone
 from django.db.models import Min, Max, Count
@@ -75,8 +75,8 @@ def search(request):
     room = request.GET.get('room', '').strip()
 
     results = None
-    qs = CO2Reading.objects # query set to build the building and room filter
-    
+    qs = CO2Session.objects # query set to build the building and room filter
+
     # Add building and room number filters, one or the other is fine 
     if building:
         qs = qs.filter(building__icontains=building)
@@ -88,8 +88,8 @@ def search(request):
     # will have the database entries for user's filter
     if building or room:
         rows = (qs.values('building', 'room_number') # return these three values
-                  .distinct() # remove duplicates for the many data points
-                  .annotate(latest_ts=Max('unix_timestamp'))
+                  .distinct() # remove duplicates for the many sessions
+                  .annotate(latest_ts=Max('end_timestamp'))
                   .order_by('building', 'room_number')) # sort by building, then room number
 
         results = []
@@ -112,8 +112,8 @@ def sessions(request, building, room):
     date_from = request.GET.get('date_from', '')
     date_to   = request.GET.get('date_to', '')
 
-    # filter should start by containing the chosen building and room number
-    qs = CO2Reading.objects.filter(building=building, room_number=room)
+    # filter by the chosen building and room number
+    qs = CO2Session.objects.filter(building=building, room_number=room)
 
     if mode:
         qs = qs.filter(mode=mode)
@@ -122,35 +122,28 @@ def sessions(request, building, room):
     if date_from:
         try:
             dt = datetime.strptime(date_from, '%Y-%m-%d')
-            qs = qs.filter(unix_timestamp__gte=int(dt.timestamp()))
+            qs = qs.filter(end_timestamp__gte=int(dt.timestamp()))
         except ValueError: # only can occur if date in url is entered manually, UI entry via flatpickr are valid
             pass
     if date_to:
         try:
             dt = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-            qs = qs.filter(unix_timestamp__lte=int(dt.timestamp()))
+            qs = qs.filter(start_timestamp__lte=int(dt.timestamp()))
         except ValueError: # only can occur if date in url is entered manually, UI entry via flatpickr are valid
             pass
 
     raw_sessions = (qs
-                    .values('mode', 'session_id') 
-                    .annotate( # adds additional return key-values for the start time, end time, and number of samples
-                        start=Min('unix_timestamp'),
-                        end=Max('unix_timestamp'),
-                        count=Count('id'),
-                    )
-                    .order_by('-start')) # sorts by most recent time
+                    .values('mode', 'session_id', 'start_timestamp', 'end_timestamp', 'reading_count')
+                    .order_by('-start_timestamp')) # sorts by most recent time
 
-    latest_for_room = (CO2Reading.objects
+    latest_for_room = (CO2Session.objects
                        .filter(building=building, room_number=room)
-                       .order_by('-unix_timestamp')
-                       .values_list('unix_timestamp', flat=True)
-                       .first())
+                       .aggregate(latest=Max('end_timestamp'))['latest'])
     device_is_live = is_live(latest_ts=latest_for_room)
     sessions = []
     for session in raw_sessions:
 
-        session_hours, session_minutes, session_seconds = get_hours_mins_seconds(end=session['end'], start=session['start'])
+        session_hours, session_minutes, session_seconds = get_hours_mins_seconds(end=session['end_timestamp'], start=session['start_timestamp'])
 
         # save current session + new info to sessions list
         sessions.append({
@@ -158,11 +151,11 @@ def sessions(request, building, room):
         'session_id':  session['session_id'],
         'building':    building,
         'room_number': room,
-        'start':       session['start'],
-        'end':         session['end'],
-        'count':       session['count'],
-        'start_fmt':   datetime.fromtimestamp(session['start'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
-        'end_fmt':     datetime.fromtimestamp(session['end'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        'start':       session['start_timestamp'],
+        'end':         session['end_timestamp'],
+        'count':       session['reading_count'],
+        'start_fmt':   datetime.fromtimestamp(session['start_timestamp'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        'end_fmt':     datetime.fromtimestamp(session['end_timestamp'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         'duration':    f"{int(session_hours)}h {int(session_minutes)}m {int(session_seconds)}s",
         'is_live':     device_is_live and not sessions, # only the first (most recent) session can be live
         })
